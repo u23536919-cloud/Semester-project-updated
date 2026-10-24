@@ -1,0 +1,60 @@
+{% extends "base.html" %}{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="page-head">
+ <h1>Dashboard - Overview of decision model</h1>
+ <form class="search" id="site-search" role="search">
+  <input type="search" name="q" placeholder="Search" aria-label="Search pages" autocomplete="off">
+  <button type="submit" aria-label="Search"><i class="bi bi-search" aria-hidden="true"></i></button>
+ </form>
+ <span class="updated">Last updated: {{ updated }}</span>
+</div>
+
+<div class="row g-3 mb-4">
+ <div class="col-6 col-xl-3"><section class="kpi-tile" aria-label="Monthly sales volume">
+  <div class="kpi-head"><i class="bi bi-globe2" aria-hidden="true"></i><span>Monthly Sales Volume</span></div>
+  <div class="kpi-val">{{ '%d'|format(kpi.volume) }}</div><div class="kpi-unit">units</div></section></div>
+ <div class="col-6 col-xl-3"><section class="kpi-tile" aria-label="Current average shipping cost per unit">
+  <div class="kpi-head"><i class="bi bi-truck" aria-hidden="true"></i><span>Current Avg. Shipping Cost<br>(per unit)</span></div>
+  <div class="kpi-val">{{ kpi.direct_zar|n(2) }}</div><div class="kpi-unit">ZAR</div></section></div>
+ <div class="col-6 col-xl-3"><section class="kpi-tile" aria-label="Estimated warehousing cost per unit">
+  <div class="kpi-head"><i class="bi bi-buildings" aria-hidden="true"></i><span>Est. Warehousing Cost<br>(per unit)</span></div>
+  <div class="kpi-val">{{ kpi.wh_zar|n(2) }}</div><div class="kpi-unit">ZAR</div></section></div>
+ <div class="col-6 col-xl-3"><section class="kpi-tile" aria-label="Break-even volume">
+  <div class="kpi-head"><svg class="scale-icon" viewBox="0 0 32 32" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 4v20M9 24h14M6 9h20M6 9l-4 9a4 4 0 0 0 8 0zM26 9l-4 9a4 4 0 0 0 8 0z"/></svg><span>Break-even volume<br>(monthly volume)</span></div>
+  <div class="kpi-val">{% if kpi.be is none %}n/a{% else %}{{ '%d'|format(kpi.be) }}{% endif %}</div><div class="kpi-unit">units</div></section></div>
+</div>
+
+<div class="row g-3">
+ <div class="col-lg-6"><section class="panel" aria-labelledby="chart-h">
+  <h2 id="chart-h">Break - even Analysis Overview</h2>
+  <p class="panel-sub">The total analysis of both the UK and US region</p>
+  <div class="chart-box"><canvas id="chart" role="img" aria-label="Total monthly cost in thousands of South African rand for shipping from South Africa and for using a regional warehouse, against monthly sales volume{% if kpi.be %}. The lines cross at about {{ '%d'|format(kpi.be) }} units per month{% endif %}" ></canvas></div>
+ </section></div>
+ <div class="col-lg-6"><section class="panel panel-insights" aria-labelledby="ins-h">
+  <h2 id="ins-h">Key Insights</h2>
+  {% if kpi.be is none %}<p>Under the current assumptions a regional warehouse does not become cheaper than shipping from SA at any volume.</p>
+  {% else %}<p>At volumes above <strong>{{ '%d'|format(kpi.be) }}</strong> units per month, establishing a regional warehouse becomes the most cost-effective option.</p>{% endif %}
+  <div class="text-center"><a class="btn-detail" href="{{ url_for('reports') }}">View Detailed Results</a></div>
+ </section></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+const c={{ curve|tojson }}, be={{ kpi.be|tojson }};
+const ymax=Math.max(...c.map(r=>Math.max(r.direct,r.warehouse)));
+const ds=[
+ {label:'Ship from SA',data:c.map(r=>({x:r.q,y:r.direct})),borderColor:'#4a7df0',backgroundColor:'#4a7df0',pointRadius:3,borderWidth:2,showLine:true},
+ {label:'Use warehouse',data:c.map(r=>({x:r.q,y:r.warehouse})),borderColor:'#9a78d6',backgroundColor:'#9a78d6',pointRadius:3,borderWidth:2,showLine:true}];
+if(be!==null)ds.push({label:'New Break Even',data:[{x:be,y:0},{x:be,y:ymax*1.1}],borderColor:'#f5c518',backgroundColor:'#f5c518',borderDash:[4,3],borderWidth:2,pointRadius:0,showLine:true});
+new Chart(document.getElementById('chart'),{type:'scatter',data:{datasets:ds},options:{maintainAspectRatio:false,
+ plugins:{legend:{position:'top',labels:{usePointStyle:true,boxWidth:6,font:{size:11}}}},
+ scales:{x:{type:'linear',min:0,title:{display:true,text:'Monthly Sales Volume (units)',font:{weight:'600'}},ticks:{callback:v=>v.toLocaleString('en-US')}},
+ y:{min:0,title:{display:true,text:'Total Cost in Thousands (ZAR)',font:{weight:'600'}}}}}});
+
+document.getElementById('site-search').addEventListener('submit',e=>{
+ e.preventDefault();const f=e.target.q,q=f.value.trim().toLowerCase();if(!q)return;
+ const a=[...document.querySelectorAll('#side nav a')].find(l=>l.textContent.toLowerCase().includes(q));
+ if(a){location.href=a.href;}else{f.value='';f.placeholder='No matching page';}});
+</script>
+{% endblock %}

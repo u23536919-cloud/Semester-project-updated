@@ -1,0 +1,28 @@
+{# Shared bits: logo and flags (inline SVG so no image files are needed) #}
+{% macro logo(height=40, label=true) -%}
+<svg class="fintr-logo" viewBox="0 0 120 {{ 100 if label else 62 }}" height="{{ height }}" role="img" aria-label="Fintr logo" xmlns="http://www.w3.org/2000/svg">
+ <g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M6 52 L40 16 Q46 10 52 16 L61 25"/>
+  <path d="M61 25 L72 13 Q78 8 84 14 L114 52"/>
+  <path d="M6 52 L22 52 L46 30 L60 43 L72 32 L98 52 L114 52"/>
+ </g>
+ {% if label %}<text x="60" y="94" text-anchor="middle" textLength="112" lengthAdjust="spacingAndGlyphs" fill="currentColor" font-family="Poppins,system-ui,sans-serif" font-weight="700" font-size="30">FINTR</text>{% endif %}
+</svg>
+{%- endmacro %}
+
+{% macro flag_uk() -%}
+<svg class="flag" viewBox="0 0 60 30" width="24" height="12" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+ <clipPath id="ukc"><path d="M0 0h60v30H0z"/></clipPath>
+ <g clip-path="url(#ukc)"><path d="M0 0h60v30H0z" fill="#012169"/>
+ <path d="M0 0l60 30M60 0L0 30" stroke="#fff" stroke-width="6"/><path d="M0 0l60 30M60 0L0 30" stroke="#C8102E" stroke-width="3"/>
+ <path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/><path d="M30 0v30M0 15h60" stroke="#C8102E" stroke-width="6"/></g>
+</svg>
+{%- endmacro %}
+
+{% macro flag_us() -%}
+<svg class="flag" viewBox="0 0 39 21" width="24" height="13" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+ <rect width="39" height="21" fill="#fff"/>
+ {% for i in range(0, 13, 2) %}<rect y="{{ (i * 21 / 13)|round(3) }}" width="39" height="{{ (21 / 13)|round(3) }}" fill="#B22234"/>{% endfor %}
+ <rect width="16" height="11.3" fill="#3C3B6E"/>
+</svg>
+{%- endmacro %}

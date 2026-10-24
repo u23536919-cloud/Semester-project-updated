@@ -1,0 +1,24 @@
+{% extends "base.html" %}{% block title %}Alerts{% endblock %}
+{% block content %}
+<h1 class="alerts-title">Alerts and threshold monitoring</h1>
+<p class="alerts-sub">Track how close each region is to its break-even point and set notifications</p>
+<section class="alerts-panel" aria-labelledby="prog-h">
+ <h2 class="al-h" id="prog-h">Region progress to break-even</h2>
+ {% for r in rows %}{% set pct = ((r.progress or 0)*100)|round|int %}
+ <div class="al-region">
+  <div class="al-name">{{ r.name }}</div>
+  <div class="al-barrow">
+   <div class="al-track" role="progressbar" aria-label="{{ r.name }} progress to break-even" aria-valuenow="{{ [pct,100]|min }}" aria-valuemin="0" aria-valuemax="100">
+    <div class="al-fill {{ 'ok' if pct>=80 else 'warn' }}" style="width:{{ [pct,100]|min }}%"></div></div>
+   <span class="al-pct">{{ pct }}%</span>
+  </div>
+ </div>{% endfor %}
+ <hr class="al-rule">
+ <h2 class="al-h" id="act-h">Active alerts</h2>
+ {% for text in alerts %}
+ <div class="al-alert"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i><span>{{ text }}</span></div>
+ {% else %}
+ <p class="al-none">No active alerts. Alerts start when a region reaches 80% of its break-even volume or its freight rate changes.</p>
+ {% endfor %}
+</section>
+{% endblock %}

@@ -1,0 +1,25 @@
+{% from "_parts.html" import logo %}
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Log in | Fintr break-even</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet"></head>
+<body class="login-page"><div class="login-wrap">
+<div class="login-logo">{{ logo(88) }}</div>
+<form method="post" class="login-form needs-validation" novalidate>
+<h1>Log In</h1>
+<div class="mb-2"><label class="login-label" for="name">Name</label>
+<input class="form-control" id="name" name="name" type="text" autocomplete="name" placeholder="Jiara Martins" required>
+<div class="invalid-feedback">Enter your name.</div></div>
+<div class="mb-2"><label class="login-label" for="email">Work email</label>
+<input class="form-control" id="email" name="email" type="email" autocomplete="email" placeholder="name@fintr.com" required>
+<div class="invalid-feedback">Enter your work email, for example name@fintr.com.</div></div>
+<div class="mb-2"><label class="login-label" for="pw">Password</label>
+<input class="form-control" id="pw" name="password" type="password" autocomplete="current-password" minlength="6" placeholder="••••••" required>
+<div class="invalid-feedback">Enter a password of at least 6 characters.</div></div>
+<div class="mb-4"><label class="login-label" for="role">Position/Role</label>
+<select class="form-select" id="role" name="role" required><option value="">Select</option><option>Finance</option><option>Supply chain planner</option><option>Senior management</option></select>
+<div class="invalid-feedback">Select your role.</div></div>
+<div class="text-center"><button class="btn btn-fintr">Log in</button></div></form></div>
+<script>document.querySelector('form').addEventListener('submit',e=>{const f=e.target;if(!f.checkValidity()){e.preventDefault();}f.classList.add('was-validated');});</script>
+</body></html>

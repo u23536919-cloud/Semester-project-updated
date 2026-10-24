@@ -1,0 +1,61 @@
+{% extends "base.html" %}{% block title %}Reports{% endblock %}
+{% block content %}
+<h1 class="visually-hidden">Reporting and export</h1>
+<div class="report-grid">
+ <form method="get" class="report-config" aria-label="Configure report">
+  <input type="hidden" name="f" value="1">
+  <h2>Configure Report</h2>
+  <label class="rc-label" for="region">Region</label>
+  <select class="form-select form-select-sm" id="region" name="region">
+   {% for k,v in regions.items() %}<option value="{{k}}" {{ 'selected' if k==code }}>{{ v.name }}</option>{% endfor %}</select>
+  <fieldset class="rc-fieldset"><legend class="rc-label">Analysis</legend>
+   {% for key, label in analysis %}
+   <div class="form-check"><input class="form-check-input" type="checkbox" id="show_{{key}}" name="show" value="{{key}}" {{ 'checked' if key in show }}>
+   <label class="form-check-label" for="show_{{key}}">{{ label }}</label></div>{% endfor %}
+  </fieldset>
+  <button class="rc-btn" type="submit" name="g" value="1">Generate Report</button>
+  <div class="rc-label">Export</div>
+  <button class="rc-btn" type="submit" formaction="{{ url_for('reports_pdf') }}" name="g" value="1"><i class="bi bi-file-earmark-pdf" aria-hidden="true"></i> PDF</button>
+  <p class="rc-hint">Choose a region and the analysis to include, then press Generate Report. PDF downloads the same report.</p>
+ </form>
+
+ <section class="report-preview" aria-labelledby="pv-h">
+  <h2 id="pv-h">Preview: {{ s.name }}, {{ today }}</h2>
+  {% if generated %}<p class="rc-status" role="status"><i class="bi bi-check-circle-fill" aria-hidden="true"></i> Report generated with: {{ d.labels|join(', ') or 'no analysis selected' }}.</p>{% endif %}
+  {% if not show %}<p class="mb-0">Select at least one analysis option to build the preview.</p>{% endif %}
+  <div class="preview-top">
+   {% if 'be' in show or 'savings' in show %}
+   <div>
+    <h3 class="pv-h3">Key Figures</h3>
+    <div class="kf-row">
+     {% if 'be' in show %}
+     <div class="kf-box"><div class="kf-label">Break Even Volume</div><div class="kf-val">{{ s.be|n }}</div><div class="kf-unit">units/month</div></div>
+     <div class="kf-box"><div class="kf-label">Current Volume</div><div class="kf-val">{{ s.q|n }}</div><div class="kf-unit">units/month</div></div>{% endif %}
+     {% if 'savings' in show %}
+     <div class="kf-box"><div class="kf-label">Potential Savings</div><div class="kf-val">{{ [saving,0]|max|n }}</div><div class="kf-unit">USD/month{% if saving < 0 %} (warehouse costs {{ (-saving)|n }} more){% endif %}</div></div>{% endif %}
+    </div>
+   </div>{% endif %}
+   {% if 'cost' in show %}
+   <div>
+    <h3 class="pv-h3 text-lg-end">Cost comparison chart</h3>
+    <div class="pv-chart"><canvas id="cost" role="img" aria-label="Monthly cost at {{ s.q|n }} units: shipping from South Africa USD {{ costs.direct|n }}, regional warehouse USD {{ costs.warehouse|n }}"></canvas></div>
+   </div>{% endif %}
+  </div>
+  {% if 'rec' in show %}
+  <div class="pv-rec">
+   <h3 class="pv-h3">Recommendation Summary</h3>
+   <p><strong>{{ d.rec }}.</strong> {{ d.rec_text }}</p>
+   <p class="mb-0 small">Based on the stated assumptions; see the region page for sensitivity results.</p>
+  </div>{% endif %}
+ </section>
+</div>
+{% endblock %}
+{% block scripts %}{% if 'cost' in show %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+Chart.defaults.color='#111';Chart.defaults.font.family='Poppins, system-ui, sans-serif';
+new Chart(document.getElementById('cost'),{type:'bar',data:{labels:['Ship from SA','Use warehouse'],
+ datasets:[{data:[{{ costs.direct|round(2) }},{{ costs.warehouse|round(2) }}],backgroundColor:['#4a7df0','#9a78d6'],borderRadius:6}]},
+ options:{maintainAspectRatio:false,plugins:{legend:{display:false}},
+ scales:{y:{beginAtZero:true,title:{display:true,text:'Monthly cost (USD)',font:{weight:'600'}},ticks:{callback:v=>v.toLocaleString('en-US')}}}}});
+</script>{% endif %}{% endblock %}

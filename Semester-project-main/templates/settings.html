@@ -1,0 +1,28 @@
+{% extends "base.html" %}{% block title %}Settings{% endblock %}
+{% macro field(f) -%}
+<div class="col-md-6 col-xl-4">
+ <label class="form-label small mb-1" for="{{ f.name }}">{{ f.label }} <span class="text-secondary">({{ f.unit }})</span></label>
+ <input class="form-control form-control-sm" id="{{ f.name }}" name="{{ f.name }}" type="number" min="0" step="any" value="{{ f.value }}" required>
+</div>
+{%- endmacro %}
+{% block content %}
+<h1 class="h4 mb-3">Settings</h1>
+<div class="card p-3 mb-3"><h2 class="h6">Account</h2>
+<dl class="row mb-0 small"><dt class="col-sm-3">Name</dt><dd class="col-sm-9">{{ user_name or 'Not set' }}</dd><dt class="col-sm-3">Role</dt><dd class="col-sm-9 mb-0">{{ user_role or 'Not set' }}</dd></dl></div>
+
+<div class="card p-3">
+ <h2 class="h6">Model assumptions</h2>
+ <dl class="row small"><dt class="col-sm-3">Decision margin</dt><dd class="col-sm-9">{{ margin }}% above break-even</dd><dt class="col-sm-3">Alert threshold</dt><dd class="col-sm-9">80% of break-even volume</dd><dt class="col-sm-3">Regions</dt><dd class="col-sm-9 mb-0">United Kingdom, United States</dd></dl>
+ <form method="post" class="needs-validation" novalidate>
+  <fieldset class="mb-3"><legend class="h6 fs-6">Exchange rates</legend>
+   <p class="small text-secondary mb-2">The UK scenario tab shows pounds, converted through the rand: pounds per US dollar = ZAR per USD &divide; ZAR per GBP.</p>
+   <div class="row g-3">{% for f in rates %}{{ field(f) }}{% endfor %}</div></fieldset>
+  <fieldset class="mb-3"><legend class="h6 fs-6">Inventory and replenishment</legend>
+   <div class="row g-3">{% for f in inv %}{{ field(f) }}{% endfor %}</div></fieldset>
+  <div class="invalid-feedback d-block-if-invalid small mb-2">Enter a number in every field (exchange rates, product cost and holding rate must be above 0).</div>
+  <p class="small text-secondary">These assumptions apply to both the UK and the US.</p>
+  <button class="btn btn-fintr btn-sm" type="submit">Save assumptions</button>
+  <button class="btn btn-outline-secondary btn-sm ms-2" type="submit" name="reset" value="1" formnovalidate>Reset to defaults</button>
+ </form>
+</div>
+{% endblock %}

@@ -1,0 +1,68 @@
+{% extends "base.html" %}{% block title %}Break-even: {{ name }}{% endblock %}
+{% block main_class %}region region-{{ code }}{% endblock %}
+{% set short = 'UK' if code == 'uk' else 'USA' %}
+{% block content %}
+{% macro money(v, signed=false) -%}{{ '+' if signed and v >= 0 }}{% if cur.code == 'GBP' %}{{ '-' if v < 0 }}£{{ v|abs|n }}{% else %}{{ v|n }} USD{% endif %}{%- endmacro %}
+<h1 class="region-title">Break Even - {{ short }} Region</h1>
+<form method="post" class="needs-validation" novalidate>
+<div class="region-grid">
+
+ <section class="area-inputs" aria-labelledby="in-h">
+  <h2 class="r-badge" id="in-h">Inputs</h2>
+  <label class="r-label" for="direct_freight_usd">Shipping cost per order <span>({{ cur.axis }})</span></label>
+  <input class="r-field" id="direct_freight_usd" name="direct_freight_usd" type="number" min="0" step="any" value="{{ vals.direct_freight_usd }}" required>
+  <label class="r-label" for="setup_usd">Warehouse setup cost <span>({{ cur.axis }})</span></label>
+  <input class="r-field" id="setup_usd" name="setup_usd" type="number" min="0" step="any" value="{{ vals.setup_usd }}" required>
+  <label class="r-label" for="local_delivery_usd">Local fulfilment cost <span>({{ cur.axis }} per order)</span></label>
+  <input class="r-field" id="local_delivery_usd" name="local_delivery_usd" type="number" min="0" step="any" value="{{ vals.local_delivery_usd }}" required>
+  <label class="r-label" for="volume">Monthly order volume <span>(units)</span></label>
+  <input class="r-field" id="volume" name="volume" type="number" min="0" step="any" value="{{ vol }}" required>
+  <div class="invalid-feedback r-invalid">Enter a number of 0 or more in every field.</div>
+ </section>
+
+ <section class="area-whatif" aria-labelledby="wi-h">
+  <h2 class="r-badge" id="wi-h">What-if inputs</h2>
+  {% for k, label in [('freight','Freight rate change'),('customs','Customs and insurance change'),('lease','Lease cost change'),('growth','Projected volume growth')] %}
+  <label class="r-label" for="wi_{{k}}">{{ label }} <span>(%)</span>: <output id="o_{{k}}">{{ wi[k]|int }}</output>%</label>
+  <input class="r-range" id="wi_{{k}}" name="wi_{{k}}" type="range" min="-30" max="30" step="1" value="{{ wi[k]|int }}" oninput="o_{{k}}.value=this.value">
+  {% endfor %}
+ </section>
+
+ <div class="area-calc"><button class="btn-calc">Calculate</button></div>
+
+ <section class="area-chart" aria-labelledby="ch-h">
+  <h2 class="r-badge r-badge-center" id="ch-h">Break Even - {{ short }} Region</h2>
+  <div class="r-chart"><canvas id="chart" role="img" aria-label="Total monthly cost in thousands of {{ cur.name }} for shipping from South Africa and for using a regional warehouse, against monthly volume{% if calc.be %}. The lines cross at about {{ '%d'|format(calc.be) }} units per month{% endif %}"></canvas></div>
+  <p class="r-summary" role="status">
+   {% if calc.be is none %}No break-even: the warehouse costs more per unit than direct shipping, so volume alone will not make it cheaper.
+   {% else %}A regional warehouse costs less above <strong>{{ calc.be|n }}</strong> units per month (decision threshold with a {{ margin }}% margin: {{ calc.threshold|n }}). At {{ vol|n }} units: <strong>{{ calc.rec }}</strong>.{% endif %}
+  </p>
+  <div class="scen-wrap"><table class="scen-table">
+   <caption class="visually-hidden">Scenario comparison for {{ name }}</caption>
+   <thead><tr><th scope="col">Scenario</th><th scope="col">Break-even</th><th scope="col">Cost impact</th><th scope="col">Recommendation</th></tr></thead>
+   <tbody>{% for r in calc.scen %}
+    <tr><th scope="row">{{ r.label }}</th><td>{{ r.be|n }}</td><td>{% if r.impact is none %}&ndash;{% else %}{{ money(r.impact, true) }}{% endif %}</td><td>{{ r.rec }}</td></tr>{% endfor %}
+   </tbody></table></div>
+  <p class="r-note">Break-even is in units per month. Cost impact is the change in the monthly saving from a regional warehouse compared with the base case, in {{ cur.name }} (a plus sign favours the warehouse).</p>
+ </section>
+</div>
+
+</form>
+{% endblock %}
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+const c={{ calc.curve|tojson }}, be={{ calc.be|tojson }};
+const k=c.map(r=>({x:r.q,d:r.direct/1000,w:r.warehouse/1000}));
+const ymax=Math.max(...k.map(r=>Math.max(r.d,r.w)));
+Chart.defaults.color='#111';Chart.defaults.font.family='Poppins, system-ui, sans-serif';
+const ds=[
+ {label:'Ship from SA',data:k.map(r=>({x:r.x,y:r.d})),borderColor:'#4a7df0',backgroundColor:'#4a7df0',pointRadius:3,borderWidth:2,showLine:true},
+ {label:'Use warehouse',data:k.map(r=>({x:r.x,y:r.w})),borderColor:'#9a78d6',backgroundColor:'#9a78d6',pointRadius:3,borderWidth:2,showLine:true}];
+if(be!==null)ds.push({label:'New Break Even',data:[{x:be,y:0},{x:be,y:ymax*1.1}],borderColor:'#f5c518',backgroundColor:'#f5c518',borderDash:[4,3],borderWidth:2,pointRadius:0,showLine:true});
+new Chart(document.getElementById('chart'),{type:'scatter',data:{datasets:ds},options:{maintainAspectRatio:false,
+ plugins:{legend:{position:'top',labels:{usePointStyle:true,boxWidth:6,font:{size:11}}}},
+ scales:{x:{type:'linear',min:0,grid:{color:'rgba(0,0,0,.12)'},title:{display:true,text:'Monthly Sales Volume (units)',font:{weight:'600'}},ticks:{callback:v=>v.toLocaleString('en-US')}},
+ y:{min:0,grid:{color:'rgba(0,0,0,.12)'},title:{display:true,text:'Total Cost in Thousands ({{ cur.axis }})',font:{weight:'600'}}}}}});
+</script>
+{% endblock %}
