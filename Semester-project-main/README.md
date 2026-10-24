@@ -1,7 +1,27 @@
-# Fintr break-even tool (BFB 321, Group 9): Steps 1-2
-Run: `pip install -r requirements.txt`, then `python -m pytest` (model tests) and `python app.py` (http://127.0.0.1:5000).
-- `models/breakeven.py`: standalone model (formulae, units and assumptions in the module docstring)
-- `tests/`: unit tests against hand-worked examples
-- `app.py` + `templates/` + `static/`: Bootstrap frontend (temporary direct calls to the model; Step 4 adds REST endpoints and MySQL)
-- Model cost calculations, dashboard charts, and reports use ZAR as the common currency. USD-denominated costs are converted using the configured ZAR-per-USD rate; regional scenario inputs remain displayed in USD for the US and GBP for the UK.
-Sample values are illustrative placeholders. Replace with Fintr's actual data.
+# Title: Fintr break-even tool (BFB 321, Group 9): 
+Project Description: This web application helps Fintr decide when it becomes cheaper to hold stock in a regional warehouse (UK or US) than to ship directly from South Africa. For each region it calculates the break-even volume, compares direct shipping and warehouse costs, shows potential monthly savings, and gives a recommendation. Users can change the inputs, run what-if scenarios (freigh rate, volume growth and warehouse lease changes), view alerts, and export a PDF report.
+
+Model cost calculations, dashboard charts and reports use ZAR as the common currency
+
+Group Members:
+Farah Hassim u23536919
+Katarina Stamenic u23635119
+Keratile Maboka u24648702
+
+Setup intsructions:
+
+1. Clone the repository: 
+
+git clone <paste-your-repository-URL-here>
+cd <repository-folder-name>
+
+2. Type in the terminal and press enter after each one: 
+'python -m venv venv'
+venv\Scripts\activate
+`pip install -r requirements.txt`
+`python -m pytest`
+`python app.py`
+Open http://127.0.0.1:5000/
+
+
+

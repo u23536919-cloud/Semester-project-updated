@@ -3,19 +3,19 @@ import pytest
 from dataclasses import replace
 from models.breakeven import *
 
-# Hand example: v_d = 10 + 2 + 0 = 12 ; v_w = 3 + 2 + 1 + 3 + 0 = 9 ; F_w = 1000+1500+500 = 3000
+# Hand example (all amounts are ZAR): v_d = 10 + 2 + 0 = 12 ; v_w = 3 + 2 + 1 + 3 + 0 = 9 ; F_w = 1000+1500+500 = 3000
 # Q* = 3000 / (12 - 9) = 1000 units/month
 SIMPLE = RegionInputs(
-    direct_freight_usd=10, direct_customs_ins_usd=2, sa_handling_zar=0,
-    inbound_freight_usd=3, inbound_customs_ins_usd=2, pick_pack_usd=1, local_delivery_usd=3,
-    holding_rate_annual=0, setup_usd=0, inbound_shipment_fixed_usd=0,
-    rent_usd_month=1000, staff_usd_month=1500, admin_usd_month=500)
+    direct_freight_zar=10, direct_customs_ins_zar=2, sa_handling_zar=0,
+    inbound_freight_zar=3, inbound_customs_ins_zar=2, pick_pack_zar=1, local_delivery_zar=3,
+    holding_rate_annual=0, setup_zar=0, inbound_shipment_fixed_zar=0,
+    rent_zar_month=1000, staff_zar_month=1500, admin_zar_month=500)
 
 
 def test_variable_and_fixed_costs():
-    assert direct_variable_cost(SIMPLE) == 216
-    assert warehouse_variable_cost(SIMPLE) == 162
-    assert warehouse_fixed_cost(SIMPLE) == 54000
+    assert direct_variable_cost(SIMPLE) == 12
+    assert warehouse_variable_cost(SIMPLE) == 9
+    assert warehouse_fixed_cost(SIMPLE) == 3000
 
 
 def test_break_even_hand_calculation():
@@ -24,7 +24,7 @@ def test_break_even_hand_calculation():
 
 def test_costs_equal_at_break_even():
     q = break_even_volume(SIMPLE)
-    assert total_cost_direct(SIMPLE, q) == pytest.approx(total_cost_warehouse(SIMPLE, q)) == pytest.approx(216000)
+    assert total_cost_direct(SIMPLE, q) == pytest.approx(total_cost_warehouse(SIMPLE, q)) == pytest.approx(12000)
 
 
 def test_eoq_matches_tutorial_worked_example():
@@ -58,9 +58,13 @@ def test_reorder_point_and_safety_stock():
 
 
 def test_break_even_with_eoq_replenishment():
-    # H = 0.15*180 = 27 ; S = 400*18 = 7200 ; k = sqrt(7200*27/6) = 180
-    # a = 3*18 = 54 ; F = 3000*18 = 54000 (z = 0); Q* = (100/3)^2 = 1111.11
-    p = replace(SIMPLE, unit_cost_zar=180, holding_rate_annual=0.15, service_z=0, inbound_shipment_fixed_usd=400)
+    # H = 0.15*180 = 27 ; S = 7200 ; k = sqrt(7200*27/6) = 180
+    # a = 12 - 9 = 3 ; F = 3000 (z = 0); Q* = (100/3)^2 = 1111.11
+    p = replace(
+        SIMPLE, direct_freight_zar=54, direct_customs_ins_zar=0,
+        inbound_freight_zar=0, inbound_customs_ins_zar=0, pick_pack_zar=0, local_delivery_zar=0,
+        rent_zar_month=54000, staff_zar_month=0, admin_zar_month=0,
+        unit_cost_zar=180, holding_rate_annual=0.15, service_z=0, inbound_shipment_fixed_zar=7200)
     assert cycle_cost_coefficient(p) == pytest.approx(180)
     q = break_even_volume(p)
     assert q == pytest.approx(10000 / 9)
@@ -68,8 +72,8 @@ def test_break_even_with_eoq_replenishment():
 
 
 def test_replenishment_plan_hand_calculation():
-    # D = 12000 ; EOQ = sqrt(2*12000*400/1.5) = 2529.82 ; orders/yr = 4.743 ; 365/4.743 = 76.95 days
-    p = replace(SIMPLE, unit_cost_zar=180, holding_rate_annual=0.15, service_z=0, inbound_shipment_fixed_usd=400)
+    # D = 12000 ; EOQ = sqrt(2*12000*7200/27) = 2529.82 ; orders/yr = 4.743 ; 365/4.743 = 76.95 days
+    p = replace(SIMPLE, unit_cost_zar=180, holding_rate_annual=0.15, service_z=0, inbound_shipment_fixed_zar=7200)
     plan = replenishment_plan(p, 1000)
     assert plan["eoq"] == pytest.approx(2529.82, abs=0.01)
     assert plan["orders_per_year"] == pytest.approx(4.743, abs=0.001)
@@ -77,11 +81,11 @@ def test_replenishment_plan_hand_calculation():
 
 
 def test_fixed_cost_includes_amortised_setup():
-    assert warehouse_fixed_cost(replace(SIMPLE, setup_usd=3600, amortisation_months=36)) == pytest.approx(55800)
+    assert warehouse_fixed_cost(replace(SIMPLE, setup_zar=3600, amortisation_months=36)) == pytest.approx(3100)
 
 
 def test_no_break_even_when_warehouse_not_cheaper_per_unit():
-    p = replace(SIMPLE, local_delivery_usd=6)  # v_w = 12 = v_d
+    p = replace(SIMPLE, local_delivery_zar=6)  # v_w = 12 = v_d
     assert break_even_volume(p) is None
     assert recommend(p, 99999) == "Ship from SA"
 
@@ -103,30 +107,29 @@ def test_lease_increase_raises_break_even():
     assert break_even_volume(apply_scenario(SIMPLE, lease_pct=0.10)) == pytest.approx(3100 / 3)
 
 
-def test_weaker_rand_increases_zar_cost_of_usd_inputs():
-    p = replace(SIMPLE, sa_handling_zar=36)
-    assert direct_variable_cost(p) == pytest.approx(252)
-    assert direct_variable_cost(apply_scenario(p, fx_pct=1.0)) == pytest.approx(468)
+def test_model_uses_zar_cost_inputs_without_currency_conversion():
+    p = replace(SIMPLE, direct_freight_zar=180)
+    assert direct_variable_cost(p) == pytest.approx(182)
 
 
 def test_sensitivity_sorted_and_complete():
     rows = sensitivity(SIMPLE)
     assert rows[0]["swing"] >= rows[-1]["swing"]
-    assert "rent_usd_month" in {r["name"] for r in rows}
+    assert "rent_zar_month" in {r["name"] for r in rows}
 
 
 def test_cost_curve_shape():
     c = cost_curve(SIMPLE, 2000, points=5)
     assert [r["q"] for r in c] == [0, 500, 1000, 1500, 2000]
-    assert c[0]["direct"] == 0 and c[0]["warehouse"] == 54000
+    assert c[0]["direct"] == 0 and c[0]["warehouse"] == 3000
 
 
 def test_saving_and_progress():
-    assert monthly_saving(SIMPLE, 2000) == pytest.approx(54000)
+    assert monthly_saving(SIMPLE, 2000) == pytest.approx(3000)
     assert progress_to_break_even(800, 1000) == pytest.approx(0.8)
 
 
-@pytest.mark.parametrize("bad", [{"rent_usd_month": -1}, {"fx_zar_per_usd": 0}, {"amortisation_months": 0}])
+@pytest.mark.parametrize("bad", [{"rent_zar_month": -1}, {"amortisation_months": 0}])
 def test_invalid_inputs_rejected(bad):
     with pytest.raises(ModelError):
         replace(SIMPLE, **bad)

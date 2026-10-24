@@ -15,12 +15,12 @@
  <dl class="row small"><dt class="col-sm-3">Decision margin</dt><dd class="col-sm-9">{{ margin }}% above break-even</dd><dt class="col-sm-3">Alert threshold</dt><dd class="col-sm-9">80% of break-even volume</dd><dt class="col-sm-3">Regions</dt><dd class="col-sm-9 mb-0">United Kingdom, United States</dd></dl>
  <form method="post" class="needs-validation" novalidate>
   <fieldset class="mb-3"><legend class="h6 fs-6">Exchange rates</legend>
-   <p class="small text-secondary mb-2">Scenario inputs can be entered in the region's currency. The model converts foreign-currency costs to ZAR for comparisons and results.</p>
+   <p class="small text-secondary mb-2">Scenario costs can be entered in the region's currency. They are converted to ZAR when saved; calculations and results use ZAR.</p>
    <div class="row g-3">{% for f in rates %}{{ field(f) }}{% endfor %}</div></fieldset>
   <fieldset class="mb-3"><legend class="h6 fs-6">Inventory and replenishment</legend>
    <div class="row g-3">{% for f in inv %}{{ field(f) }}{% endfor %}</div></fieldset>
   <fieldset class="mb-3"><legend class="h6 fs-6">Inbound shipment costs by region</legend>
-   <p class="small text-secondary mb-2">Set the fixed cost for each bulk shipment separately. Enter the UK amount in GBP and the US amount in USD; the model converts both to ZAR for calculations.</p>
+   <p class="small text-secondary mb-2">Set the fixed cost for each bulk shipment separately. Enter the UK amount in GBP and the US amount in USD; both are saved in ZAR.</p>
    <div class="row g-3">{% for f in regional %}{{ field(f) }}{% endfor %}</div></fieldset>
   <div class="invalid-feedback d-block-if-invalid small mb-2">Enter a number in every field (exchange rates, product cost and holding rate must be above 0).</div>
   <p class="small text-secondary">Exchange rates and inventory assumptions apply to both regions. Inbound shipment costs are region-specific.</p>

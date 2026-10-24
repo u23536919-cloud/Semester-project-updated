@@ -14,15 +14,16 @@ from report_pdf import build_report_pdf
 REGIONS = {  
     "uk": {"name": "United Kingdom", "volume": 780, "over": {}},
     "us": {"name": "United States", "volume": 1050, "over": {
-        "direct_freight_usd": 16.5, "local_delivery_usd": 5.2, "rent_usd_month": 3200.0}},
+        "direct_freight_zar": 297.0, "local_delivery_zar": 93.6, "rent_zar_month": 57600.0}},
 }
 #The above code displays the default values for the different regions, on the website. The user can change these values on the scenario comparison tabs.
 
 MARGIN = 0.10
+DEFAULT_ZAR_PER_USD = 18.0
 DEFAULT_ZAR_PER_GBP = 23.5
-MAIN_FIELDS = ("direct_freight_usd", "setup_usd", "local_delivery_usd", "rent_usd_month")
+MAIN_FIELDS = ("direct_freight_zar", "setup_zar", "local_delivery_zar", "rent_zar_month")
 INV_FIELDS = [f.name for f in fields(m.RegionInputs) if f.metadata["group"] == m.G_I]
-SHIPMENT_COST_FIELD = "inbound_shipment_fixed_usd"
+SHIPMENT_COST_FIELD = "inbound_shipment_fixed_zar"
 REGIONAL_SHIPMENT_FIELDS = tuple(
     (f"{SHIPMENT_COST_FIELD}_{code}", f"Fixed cost per inbound shipment (S) - {REGIONS[code]['name']}")
     for code in REGIONS
@@ -36,8 +37,7 @@ CUR = {"uk": {"code": "GBP", "axis": "£", "name": "British pounds"},
 def setting_fields():
     """Inputs shown on the Settings page: exchange rates, then inventory and replenishment."""
     by_name = {f.name: f for f in fields(m.RegionInputs)}
-    fx = by_name["fx_zar_per_usd"]
-    out = [{"name": "fx_zar_per_usd", "label": "Exchange rate", "unit": "ZAR per USD", "group": "rates", "default": fx.default},
+    out = [{"name": "fx_zar_per_usd", "label": "Exchange rate", "unit": "ZAR per USD", "group": "rates", "default": DEFAULT_ZAR_PER_USD},
            {"name": "zar_per_gbp", "label": "Exchange rate", "unit": "ZAR per GBP", "group": "rates", "default": DEFAULT_ZAR_PER_GBP}]
     #This is displaying the exchange rates, for pounds and dollars.
     
@@ -53,76 +53,117 @@ def setting_fields():
     # This for loop is displaying the default values for the different shipment costs, on the website. The user can change these values on the settings page.
     for name, label in REGIONAL_SHIPMENT_FIELDS:
         code = name.rsplit("_", 1)[-1]
-        unit = "GBP" if code == "uk" else shipment.metadata["unit"]
+        unit = "GBP" if code == "uk" else "USD"
+        rate = DEFAULT_ZAR_PER_GBP if code == "uk" else DEFAULT_ZAR_PER_USD
         out.append({"name": name, "label": label, "unit": unit, "group": "regional",
-                    "default": shipment.default})
+                    "default": shipment.default / rate})
     return out
 
 
-
+# The def settings_values() function is used to display the default values but the user can change the values.
+# The function will the update to use the new values.
 def settings_values():
     """Saved assumptions (kept in the user's session) on top of the defaults."""
     vals = {f["name"]: f["default"] for f in setting_fields()}
+    regional_names = {name for name, _ in REGIONAL_SHIPMENT_FIELDS}
+    for name, _ in REGIONAL_SHIPMENT_FIELDS:
+        vals[name] = m.RegionInputs.inbound_shipment_fixed_zar
     saved = session.get("assump", {})
-    vals.update({k: v for k, v in saved.items() if k in vals})
-    legacy = saved.get(SHIPMENT_COST_FIELD)
-    if legacy is not None:
-        for code in REGIONS:
-            name = f"{SHIPMENT_COST_FIELD}_{code}"
-            if name not in saved:
-                vals[name] = legacy
+    vals.update({k: v for k, v in saved.items() if k in vals and k not in regional_names})
     fx = vals["fx_zar_per_usd"]
-    zar_per_gbp = vals["zar_per_gbp"]
-    vals[f"{SHIPMENT_COST_FIELD}_uk"] = round(vals[f"{SHIPMENT_COST_FIELD}_uk"] * fx / zar_per_gbp, 2)
+    legacy = saved.get("inbound_shipment_fixed_usd")
+    for code in REGIONS:
+        name = f"{SHIPMENT_COST_FIELD}_{code}"
+        old_name = f"inbound_shipment_fixed_usd_{code}"
+        if name in saved:
+            vals[name] = saved[name]
+        elif old_name in saved:
+            vals[name] = saved[old_name] * fx
+        elif legacy is not None:
+            vals[name] = legacy * fx
     return vals
 
 
+# The def region_state() function is used to display the state we in.
 def region_state(code):
-    return session.get("state", {}).get(code, {})
+    state = dict(session.get("state", {}).get(code, {}))
+    fx = settings_values()["fx_zar_per_usd"]
+    legacy_fields = {
+        "direct_freight_usd": "direct_freight_zar",
+        "setup_usd": "setup_zar",
+        "local_delivery_usd": "local_delivery_zar",
+        "rent_usd_month": "rent_zar_month",
+    }
+    for old_name, name in legacy_fields.items():
+        if old_name in state and name not in state:
+            state[name] = state[old_name] * fx
+    return state
 
 
+#in the def region_inputs() function, we are displaying the default values for the different regions, on the website. The user can change these values on the scenario comparison tabs.
 def region_inputs(code):
-    s = settings_values()
-    kw = dict(REGIONS[code]["over"])
-    kw.update({k: s[k] for k in ["fx_zar_per_usd"] + [n for n in INV_FIELDS if n != SHIPMENT_COST_FIELD]})
-    shipment_cost = s[f"{SHIPMENT_COST_FIELD}_{code}"]
-    if code == "uk":
-        shipment_cost *= s["zar_per_gbp"] / s["fx_zar_per_usd"]
-    kw[SHIPMENT_COST_FIELD] = shipment_cost
-    kw.update({k: v for k, v in region_state(code).items() if k in MAIN_FIELDS})
-    return m.RegionInputs(**kw)
+    settings = settings_values()
+
+# the values variable is used to store the default values for the different regions, on the website.
+    values = {
+        **REGIONS[code]["over"],
+        **{
+            name: settings[name]
+            for name in INV_FIELDS if name != SHIPMENT_COST_FIELD
+        },
+    }
+
+#the shipment_cost variable is used to store the default values for the different shipment costs, on the website.
+    shipment_cost = settings[f"{SHIPMENT_COST_FIELD}_{code}"]
+    values[SHIPMENT_COST_FIELD] = shipment_cost
+
+#whatever the user inputs the code will overwite the default value with the user input.
+    values.update({
+        name:value
+        for name, value in region_state(code).items()
+        if name in MAIN_FIELDS
+    })
+
+    return m.RegionInputs(**values)
 
 
+# the def region volume function updates the volume of the specific region with whatever the user inputs it as.
 def region_volume(code):
     return region_state(code).get("volume", REGIONS[code]["volume"])
 
 
+# The def display_rate() function converts ZAR inputs to the currency shown on that region page.
 def display_rate(code):
-    """Convert USD-denominated region inputs to the currency shown on that region page."""
+    """Convert ZAR model inputs to the currency shown on that region page."""
     s = settings_values()
-    return s["fx_zar_per_usd"] / s["zar_per_gbp"] if code == "uk" else 1.0
+    return 1 / s["zar_per_gbp"] if code == "uk" else 1 / s["fx_zar_per_usd"]
 
-
+# def freight_change works  out how much the freight rate has changed (in %) compared to the starting value.
 def freight_change(code):
     """% change of the current freight rate (saved input and freight slider) against the starting rate."""
     st = region_state(code)
-    base = REGIONS[code]["over"].get("direct_freight_usd", m.RegionInputs.direct_freight_usd)
+    #base is the starting freight rate.
+    base = REGIONS[code]["over"].get("direct_freight_zar", m.RegionInputs.direct_freight_zar)
     if not st or not base:
-        return 0.0
-    return (st["direct_freight_usd"] * (1 + st.get("wi", {}).get("freight", 0) / 100) / base - 1) * 100
+        return 0.0 #If nothing has been inputted, the freight rate change will be 0.
+    #if the user has inputted a new freight rate, the function will calculate the % change of the current freight rate against the starting rate.
+    return (st["direct_freight_zar"] * (1 + st.get("wi", {}).get("freight", 0) / 100) / base - 1) * 100
 
 
+#This function groups the models fields by their metadata group, so that they can be displayed in the settings page in a more organized way.
 def grouped_fields():
     groups = OrderedDict()
     for f in fields(m.RegionInputs):
-        groups.setdefault(f.metadata["group"], []).append(f)
+        groups.setdefault(f.metadata["group"], []).append(f) #make the group if its new, then add the field.
     return groups
 
 
+#This function sets up the Flask app and all the pages (routes) inside it. 
 def create_app():
     app = Flask(__name__)
-    app.secret_key = "dev-only-change-me"
+    app.secret_key = "dev-only-change-me" 
 
+    
     @app.template_filter("n")
     def n(v, d=0):
         return "n/a" if v is None else f"{v:,.{d}f}"
@@ -139,6 +180,7 @@ def create_app():
             return redirect(url_for("dashboard"))
         return render_template("login.html")
 
+    #This function collects the key numbers for one region (break-even, cost per unit, progress and recommendations)
     def summary(code):
         p, q = region_inputs(code), region_volume(code)
         be = m.break_even_volume(p)
@@ -147,8 +189,11 @@ def create_app():
                 "wh_unit": m.total_cost_warehouse(p, q) / q if q else None,
                 "progress": m.progress_to_break_even(q, be), "rec": m.recommend(p, q, MARGIN)}
 
+
+    #This functions creates the list of alert messages on the alerts and monitoring page.
     def active_alerts():
         out = []
+        #go through the regions and check if they are approaching or have reached break-even, and add an alert message to the list if they are.
         for r in sorted((summary(c) for c in REGIONS), key=lambda r: r["progress"] or 0, reverse=True):
             pct = round((r["progress"] or 0) * 100)
             if r["be"] is None:
@@ -157,33 +202,42 @@ def create_app():
                 out.append(f"{r['name']} has reached break-even: review regional warehousing")
             elif pct >= 80:
                 out.append(f"{r['name']} approaching break-even threshold")
+        #check if the freight rate changed and add an alert message to the alerts page if it did.
         for code in REGIONS:
             ch = freight_change(code)
             if abs(ch) >= 0.05:
-                amount = f"{abs(ch):.1f}".rstrip("0").rstrip(".")
+                amount = f"{abs(ch):.1f}".rstrip("0").rstrip(".") # removes the spaces and trailing zeros from the number, so that it looks cleaner on the page.
                 out.append(f"{code.upper()} freight rate {'increased' if ch > 0 else 'decreased'} {amount}%")
         return out
 
+    
+    #shell() adds the users name , role and alert count to every template automatically, so we dont have to enetr them manually on every page.
     @app.context_processor
     def shell():
         return {"user_name": session.get("name", ""), "user_role": session.get("role", ""),
                 "alert_count": len(active_alerts())}
 
+    #overview() works out the combined UK + US numbers for the dashboard
     def overview():
         """Combined UK + US picture. Total volume is split between regions in today's proportions;
         each region keeps its own warehouse, so costs are summed region by region."""
         parts = [(region_inputs(c), region_volume(c)) for c in REGIONS]
+        # The total variable is used to store the total volume of all regions combined, and the tot variable is used to store the total volume or 1 if the total volume is 0.
         total = sum(q for _, q in parts)
         tot = total or 1
 
+        #adds up a cost function across both regions, giving each region its share volume-
+        
         def cost(fn, vol):
-            return sum(fn(p, vol * q / tot) for p, q in parts)
+            return sum(fn(p, vol * q / tot) for p, q in parts) 
 
         def gap(vol):  # warehouse minus direct: positive means shipping from SA is cheaper
             return cost(m.total_cost_warehouse, vol) - cost(m.total_cost_direct, vol)
 
-        be, hi = None, max(total, 1.0)
-        while gap(hi) > 0 and hi < 1e7:
+        be = None
+        hi = max(total, 1.0)
+
+        while gap(hi) > 0 and hi < 1e7: 
             hi *= 2
         if gap(hi) <= 0:
             lo = 0.0
@@ -227,7 +281,15 @@ def create_app():
                     if name == "holding_rate_annual" and v > 1:
                         raise m.ModelError(f"{where} must be between 0 and 1.")
                     new[name] = v
-                new[f"{SHIPMENT_COST_FIELD}_uk"] *= new["zar_per_gbp"] / new["fx_zar_per_usd"]
+                current = settings_values()
+                for code in REGIONS:
+                    name = f"{SHIPMENT_COST_FIELD}_{code}"
+                    old_rate = current["zar_per_gbp"] if code == "uk" else current["fx_zar_per_usd"]
+                    if abs(new[name] - round(current[name] / old_rate, 2)) < 0.005:
+                        new[name] = current[name]
+                    else:
+                        rate = new["zar_per_gbp"] if code == "uk" else new["fx_zar_per_usd"]
+                        new[name] *= rate
                 model_fields = {f.name for f in fields(m.RegionInputs)}
                 m.RegionInputs(**{k: v for k, v in new.items() if k in model_fields})
                 session["assump"] = new
@@ -236,10 +298,17 @@ def create_app():
             except (ValueError, KeyError) as e:
                 flash(str(e) if isinstance(e, m.ModelError) else "Enter a number in every assumption field.", "danger")
         vals = settings_values()
+        regional = []
+        for f in fields_:
+            if f["group"] != "regional":
+                continue
+            code = f["name"].rsplit("_", 1)[-1]
+            rate = vals["zar_per_gbp"] if code == "uk" else vals["fx_zar_per_usd"]
+            regional.append(dict(f, value=round(vals[f["name"]] / rate, 2)))
         return render_template("settings.html", page="settings", margin=int(MARGIN * 100),
                                rates=[dict(f, value=vals[f["name"]]) for f in fields_ if f["group"] == "rates"],
                                inv=[dict(f, value=vals[f["name"]]) for f in fields_ if f["group"] == "inv"],
-                               regional=[dict(f, value=vals[f["name"]]) for f in fields_ if f["group"] == "regional"])
+                               regional=regional)
 
     @app.route("/alerts")
     def alerts():
@@ -327,7 +396,7 @@ def create_app():
     def region(code):
         if code not in REGIONS:
             return render_template("error.html", msg="That region is not set up yet."), 404
-        rate = display_rate(code)  # USD -> region currency (pounds for the UK)
+        rate = display_rate(code)  # ZAR -> region currency
         p, vol = region_inputs(code), region_volume(code)
         wi = {k: region_state(code).get("wi", {}).get(k, 0) for k in ("freight", "customs", "lease", "growth")}
         calc = None
