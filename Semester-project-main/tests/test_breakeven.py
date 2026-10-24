@@ -13,9 +13,9 @@ SIMPLE = RegionInputs(
 
 
 def test_variable_and_fixed_costs():
-    assert direct_variable_cost(SIMPLE) == 12
-    assert warehouse_variable_cost(SIMPLE) == 9
-    assert warehouse_fixed_cost(SIMPLE) == 3000
+    assert direct_variable_cost(SIMPLE) == 216
+    assert warehouse_variable_cost(SIMPLE) == 162
+    assert warehouse_fixed_cost(SIMPLE) == 54000
 
 
 def test_break_even_hand_calculation():
@@ -24,7 +24,7 @@ def test_break_even_hand_calculation():
 
 def test_costs_equal_at_break_even():
     q = break_even_volume(SIMPLE)
-    assert total_cost_direct(SIMPLE, q) == pytest.approx(total_cost_warehouse(SIMPLE, q)) == pytest.approx(12000)
+    assert total_cost_direct(SIMPLE, q) == pytest.approx(total_cost_warehouse(SIMPLE, q)) == pytest.approx(216000)
 
 
 def test_eoq_matches_tutorial_worked_example():
@@ -45,10 +45,10 @@ def test_eoq_rejects_zero_holding_cost():
 
 
 def test_safety_holding_cost_hand_calculation():
-    # value = 180/18 = 10 ; H = 0.12*10 = 1.2 ; (1.2/12) * 1.65 * 0.3 * sqrt(1) = 0.0495
+    # H = 0.12*180 = 21.6 ZAR ; (21.6/12) * 1.65 * 0.3 * sqrt(1) = 0.891
     p = replace(SIMPLE, unit_cost_zar=180, holding_rate_annual=0.12, lead_time_months=1.0)
-    assert annual_holding_cost_per_unit(p) == pytest.approx(1.2)
-    assert safety_holding_cost_per_unit(p) == pytest.approx(0.0495)
+    assert annual_holding_cost_per_unit(p) == pytest.approx(21.6)
+    assert safety_holding_cost_per_unit(p) == pytest.approx(0.891)
 
 
 def test_reorder_point_and_safety_stock():
@@ -58,10 +58,10 @@ def test_reorder_point_and_safety_stock():
 
 
 def test_break_even_with_eoq_replenishment():
-    # H = 0.15*10 = 1.5 ; S = 400 ; k = sqrt(400*1.5/6) = 10 ; a = 3 ; F = 3000 (z = 0)
-    # x = (10 + sqrt(100 + 4*3*3000)) / 6 = (10 + 190)/6 ; Q* = (100/3)^2 = 1111.11
+    # H = 0.15*180 = 27 ; S = 400*18 = 7200 ; k = sqrt(7200*27/6) = 180
+    # a = 3*18 = 54 ; F = 3000*18 = 54000 (z = 0); Q* = (100/3)^2 = 1111.11
     p = replace(SIMPLE, unit_cost_zar=180, holding_rate_annual=0.15, service_z=0, inbound_shipment_fixed_usd=400)
-    assert cycle_cost_coefficient(p) == pytest.approx(10)
+    assert cycle_cost_coefficient(p) == pytest.approx(180)
     q = break_even_volume(p)
     assert q == pytest.approx(10000 / 9)
     assert total_cost_direct(p, q) == pytest.approx(total_cost_warehouse(p, q))
@@ -77,7 +77,7 @@ def test_replenishment_plan_hand_calculation():
 
 
 def test_fixed_cost_includes_amortised_setup():
-    assert warehouse_fixed_cost(replace(SIMPLE, setup_usd=3600, amortisation_months=36)) == pytest.approx(3100)
+    assert warehouse_fixed_cost(replace(SIMPLE, setup_usd=3600, amortisation_months=36)) == pytest.approx(55800)
 
 
 def test_no_break_even_when_warehouse_not_cheaper_per_unit():
@@ -103,10 +103,10 @@ def test_lease_increase_raises_break_even():
     assert break_even_volume(apply_scenario(SIMPLE, lease_pct=0.10)) == pytest.approx(3100 / 3)
 
 
-def test_weaker_rand_lowers_zar_cost_in_usd():
-    p = replace(SIMPLE, sa_handling_zar=36)  # 36/18 = 2 USD
-    assert direct_variable_cost(p) == pytest.approx(14)
-    assert direct_variable_cost(apply_scenario(p, fx_pct=1.0)) == pytest.approx(13)  # 36/36 = 1
+def test_weaker_rand_increases_zar_cost_of_usd_inputs():
+    p = replace(SIMPLE, sa_handling_zar=36)
+    assert direct_variable_cost(p) == pytest.approx(252)
+    assert direct_variable_cost(apply_scenario(p, fx_pct=1.0)) == pytest.approx(468)
 
 
 def test_sensitivity_sorted_and_complete():
@@ -118,11 +118,11 @@ def test_sensitivity_sorted_and_complete():
 def test_cost_curve_shape():
     c = cost_curve(SIMPLE, 2000, points=5)
     assert [r["q"] for r in c] == [0, 500, 1000, 1500, 2000]
-    assert c[0]["direct"] == 0 and c[0]["warehouse"] == 3000
+    assert c[0]["direct"] == 0 and c[0]["warehouse"] == 54000
 
 
 def test_saving_and_progress():
-    assert monthly_saving(SIMPLE, 2000) == pytest.approx(3000)
+    assert monthly_saving(SIMPLE, 2000) == pytest.approx(54000)
     assert progress_to_break_even(800, 1000) == pytest.approx(0.8)
 
 

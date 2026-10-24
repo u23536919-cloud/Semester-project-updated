@@ -1,8 +1,10 @@
 """We used AI to help build our frontend model.
+This values displayed on the dashboard are defualt or dummy values. We have not reieved values from Fintr as of yet.
 Break-even model: This calculates the order volume at which it is feasible to ship directly 
 from South Africa (SA) vs building a regional warehouse
 
-We assume warehousing costs are in USD or Pounds and shipping costs are in ZAR
+Costs are converted to ZAR before comparison. Foreign-currency inputs are in USD;
+South African costs and inventory value are already in ZAR.
 
 We consider each unit to be a game 
 
@@ -11,10 +13,10 @@ Direct shpping:
     Total cost (ZAR)
 
 Warehouse costs:
-    Variable costs (US/UK)
-    Fixed costs (US/UK)
-    Holding costs (US/UK)
-    Total regional costs =  Variable costs (US/UK) + Fixed costs (US/UK) + Holding costs (US/UK)
+    Variable costs (ZAR)
+    Fixed costs (ZAR)
+    Holding costs (ZAR)
+    Total regional costs = variable costs + fixed costs + holding costs (all in ZAR)
 
 
 Break even point (a): Total costs (direct) = Total cost (Warehouse)
@@ -62,8 +64,8 @@ class RegionInputs: #Contains all the inputs for one region at a time. US or UK
     sa_handling_zar: float = _f("SA pick, pack and handling per unit", "ZAR", G_D, 20.0)
     inbound_freight_usd: float = _f("Bulk inbound freight per unit", "USD", G_V, 2.80)
     inbound_customs_ins_usd: float = _f("Inbound customs, duties and insurance per unit", "USD", G_V, 2.50)
-    #pick_pack_usd: float = _f("Pick and pack per unit", "USD", G_V, 1.80)
-    #local_delivery_usd: float = _f("Local delivery per unit", "USD", G_V, 4.50)
+    pick_pack_usd: float = _f("Pick and pack per unit", "USD", G_V, 1.80)
+    local_delivery_usd: float = _f("Local delivery per unit", "USD", G_V, 4.50)
     unit_cost_zar: float = _f("Product cost per unit (values inventory)", "ZAR", G_I, 144.0)
     holding_rate_annual: float = _f("Annual holding rate (fraction of value)", "0-1", G_I, 0.20)
     lead_time_months: float = _f("Replenishment lead time (L)", "months", G_I, 1.5)
@@ -90,18 +92,22 @@ class RegionInputs: #Contains all the inputs for one region at a time. US or UK
  
 #The p is an alias for the RegionInputs class, which is used to pass the input values to the functions.
 
-def unit_value_usd(p: RegionInputs):
-    return p.unit_cost_zar / p.fx_zar_per_usd
-# This function is converting the unit cost from ZAR to USD.
+def usd_to_zar(p: RegionInputs, amount: float):
+    """Convert a USD amount to the model's common currency, ZAR."""
+    return amount * p.fx_zar_per_usd
+
+
+def unit_value_zar(p: RegionInputs):
+    return p.unit_cost_zar
 
 def direct_variable_cost(p: RegionInputs):
-    """v_d (USD/unit)."""
-    return p.direct_freight_usd + p.direct_customs_ins_usd + p.sa_handling_zar / p.fx_zar_per_usd
+    """v_d (ZAR/unit)."""
+    return usd_to_zar(p, p.direct_freight_usd + p.direct_customs_ins_usd) + p.sa_handling_zar
 #This function calculates the shipping cost per unit for direct shipping from South Africa to the region. 
 
 def annual_holding_cost_per_unit(p: RegionInputs):
-    """H (USD per unit per year)."""
-    return p.holding_rate_annual * unit_value_usd(p)
+    """H (ZAR per unit per year)."""
+    return p.holding_rate_annual * unit_value_zar(p)
 
 
 def safety_holding_cost_per_unit(p: RegionInputs):
@@ -111,20 +117,24 @@ def safety_holding_cost_per_unit(p: RegionInputs):
 
 def cycle_cost_coefficient(p: RegionInputs):
     """k in (monthly EOQ ordering + cycle-stock cost) = k * sqrt(Q)."""
-    return sqrt(p.inbound_shipment_fixed_usd * annual_holding_cost_per_unit(p) / 6)
+    return sqrt(usd_to_zar(p, p.inbound_shipment_fixed_usd)
+                * annual_holding_cost_per_unit(p) / 6)
 #this function calculates the cycle cost coefficient, which is used to determine the total cost of using a warehouse. 
 # It takes into account the fixed cost per inbound shipment and the annual holding cost per unit.
 
 
 def warehouse_variable_cost(p: RegionInputs):
-    """v_w (USD/unit)."""
-    return (p.inbound_freight_usd + p.inbound_customs_ins_usd  + safety_holding_cost_per_unit(p))
-#the warehouse cost consists of: inbound freight, customs, safety stock
+    """v_w (ZAR/unit)."""
+    foreign_costs = (p.inbound_freight_usd + p.inbound_customs_ins_usd
+                     + p.pick_pack_usd + p.local_delivery_usd)
+    return usd_to_zar(p, foreign_costs) + safety_holding_cost_per_unit(p)
+#the warehouse cost consists of: inbound freight, customs, safety stock, pick and pack and  local delivery.
 
 def warehouse_fixed_cost(p: RegionInputs):
-    """F_w (USD/month)."""
-    return (p.rent_usd_month + p.staff_usd_month + p.admin_usd_month
-            + p.setup_usd / p.amortisation_months)
+    """F_w (ZAR/month)."""
+    foreign_costs = (p.rent_usd_month + p.staff_usd_month + p.admin_usd_month
+                     + p.setup_usd / p.amortisation_months)
+    return usd_to_zar(p, foreign_costs)
 # the warehouse variable cost consists of: rent, staff salaries, admin, setup cost 
 #Amortisation is spreading out a cost over a period of time, instead of once off.
 
@@ -163,7 +173,7 @@ def replenishment_plan(p: RegionInputs, q: float):
     _check_q(q) ## if q is less than 0, it returns an error to the user saying monthly order volume can not be negative
     d = 12 * q
     h = annual_holding_cost_per_unit(p)
-    eoq = calculate_eoq(d, p.inbound_shipment_fixed_usd, h) if h > 0 else 0.0 ## if the holding cost is zero  we dont want it to return an error, instead we want it to return zero, to indicate the EOQ is zero, therefore no warehouse just direct shipping is the best option
+    eoq = calculate_eoq(d, usd_to_zar(p, p.inbound_shipment_fixed_usd), h) if h > 0 else 0.0 ## if the holding cost is zero  we dont want it to return an error, instead we want it to return zero, to indicate the EOQ is zero, therefore no warehouse just direct shipping is the best option
     opy = orders_per_year(d, eoq) ## this calculates the number of orders per year based on the demand and EOQ
     return {"eoq": eoq, "orders_per_year": opy, 
             "days_between": 365 / opy if opy else 0.0, ##  This function calculates the number of days between shipments
@@ -200,18 +210,18 @@ def break_even_volume(p: RegionInputs):
     return x * x
 
 
-def decision_threshold(p: RegionInputs):
+def decision_threshold(p: RegionInputs, margin: float = 0.10):
     be = break_even_volume(p)
-    return None if be is None else be 
-#It shows the break-even thresh-hold
+    return None if be is None else be * (1 + margin)
 
-def recommend(p: RegionInputs, q: float) :
+def recommend(p: RegionInputs, q: float, margin: float = 0.10):
     be = break_even_volume(p)
     if be is None or q < be:
-        return "Ship from SA" 
+        return "Ship from SA"
+    elif q < decision_threshold(p, margin):
+        return "Review: inside margin"
     else:
-        return "Use warehouse" 
-#This is telling the user what to do according to the break even point
+        return "Use warehouse"
 
 def monthly_saving(p: RegionInputs, q: float):
     """Direct minus warehouse cost at Q (positive = warehouse cheaper)."""

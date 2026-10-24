@@ -31,7 +31,7 @@ def _key_figures(d):
         be = "n/a" if d["be"] is None else _money(d["be"])
         cells += [("Break Even Volume", be, "units/month"), ("Current Volume", _money(d["q"]), "units/month")]
     if "savings" in d["show"]:
-        note = f"USD/month (warehouse costs {_money(-d['saving'])} more)" if d["saving"] < 0 else "USD/month"
+        note = f"ZAR/month (warehouse costs {_money(-d['saving'])} more)" if d["saving"] < 0 else "ZAR/month"
         cells.append(("Potential Savings", _money(max(d["saving"], 0)), note))
     if not cells:
         return None
@@ -47,7 +47,7 @@ def _key_figures(d):
 def _chart(d):
     direct, wh = d["direct"], d["warehouse"]
     dr = Drawing(WIDTH, 190)
-    dr.add(String(WIDTH / 2, 176, f"Monthly cost at {_money(d['q'])} units per month (USD)", textAnchor="middle",
+    dr.add(String(WIDTH / 2, 176, f"Monthly cost at {_money(d['q'])} units per month (ZAR)", textAnchor="middle",
                   fontName="Helvetica-Bold", fontSize=9))
     bc = VerticalBarChart()
     bc.x, bc.y, bc.width, bc.height = 60, 24, WIDTH - 90, 138
@@ -74,7 +74,7 @@ def _chart(d):
 def _cost_table(d):
     q = d["q"] or 1
     diff = d["warehouse"] - d["direct"]
-    rows = [["Option", "Monthly cost (USD)", "Cost per unit (USD)"],
+    rows = [["Option", "Monthly cost (ZAR)", "Cost per unit (ZAR)"],
             ["Ship from SA", _money(d["direct"]), f"{d['direct'] / q:,.2f}"],
             ["Use warehouse", _money(d["warehouse"]), f"{d['warehouse'] / q:,.2f}"],
             ["Warehouse minus SA", f"{'+' if diff >= 0 else '-'}{_money(abs(diff))}", f"{diff / q:+,.2f}"]]
@@ -125,6 +125,6 @@ def build_report_pdf(d):
         story += [Paragraph("Recommendation Summary", H2),
                   Paragraph(f"<b>{escape(d['rec'])}.</b> {escape(d['rec_text'])}", BODY), Spacer(1, 6),
                   Paragraph("Based on the stated assumptions; see the region page for sensitivity results. "
-                            "All amounts are in USD.", SMALL)]
+                            "All amounts are in ZAR.", SMALL)]
     doc.build(story, onFirstPage=_footer(d), onLaterPages=_footer(d))
     return buf.getvalue()

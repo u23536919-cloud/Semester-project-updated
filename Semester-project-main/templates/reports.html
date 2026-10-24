@@ -32,13 +32,13 @@
      <div class="kf-box"><div class="kf-label">Break Even Volume</div><div class="kf-val">{{ s.be|n }}</div><div class="kf-unit">units/month</div></div>
      <div class="kf-box"><div class="kf-label">Current Volume</div><div class="kf-val">{{ s.q|n }}</div><div class="kf-unit">units/month</div></div>{% endif %}
      {% if 'savings' in show %}
-     <div class="kf-box"><div class="kf-label">Potential Savings</div><div class="kf-val">{{ [saving,0]|max|n }}</div><div class="kf-unit">USD/month{% if saving < 0 %} (warehouse costs {{ (-saving)|n }} more){% endif %}</div></div>{% endif %}
+     <div class="kf-box"><div class="kf-label">Potential Savings</div><div class="kf-val">{{ [saving,0]|max|n }}</div><div class="kf-unit">ZAR/month{% if saving < 0 %} (warehouse costs {{ (-saving)|n }} more){% endif %}</div></div>{% endif %}
     </div>
    </div>{% endif %}
    {% if 'cost' in show %}
    <div>
     <h3 class="pv-h3 text-lg-end">Cost comparison chart</h3>
-    <div class="pv-chart"><canvas id="cost" role="img" aria-label="Monthly cost at {{ s.q|n }} units: shipping from South Africa USD {{ costs.direct|n }}, regional warehouse USD {{ costs.warehouse|n }}"></canvas></div>
+    <div class="pv-chart"><canvas id="cost" role="img" aria-label="Monthly cost at {{ s.q|n }} units: shipping from South Africa ZAR {{ costs.direct|n }}, regional warehouse ZAR {{ costs.warehouse|n }}"></canvas></div>
    </div>{% endif %}
   </div>
   {% if 'rec' in show %}
@@ -57,5 +57,5 @@ Chart.defaults.color='#111';Chart.defaults.font.family='Poppins, system-ui, sans
 new Chart(document.getElementById('cost'),{type:'bar',data:{labels:['Ship from SA','Use warehouse'],
  datasets:[{data:[{{ costs.direct|round(2) }},{{ costs.warehouse|round(2) }}],backgroundColor:['#4a7df0','#9a78d6'],borderRadius:6}]},
  options:{maintainAspectRatio:false,plugins:{legend:{display:false}},
- scales:{y:{beginAtZero:true,title:{display:true,text:'Monthly cost (USD)',font:{weight:'600'}},ticks:{callback:v=>v.toLocaleString('en-US')}}}}});
+ scales:{y:{beginAtZero:true,title:{display:true,text:'Monthly cost (ZAR)',font:{weight:'600'}},ticks:{callback:v=>v.toLocaleString('en-US')}}}}});
 </script>{% endif %}{% endblock %}
