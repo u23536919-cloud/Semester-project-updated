@@ -4,9 +4,9 @@ Project Description: This web application helps Fintr decide when it becomes che
 Model cost calculations, dashboard charts and reports use ZAR as the common currency
 
 Group Members:
-Farah Hassim u23536919 /n
-Katarina Stamenic u23635119 /n
-Keratile Maboka u24648702 /n
+Farah Hassim u23536919 
+Katarina Stamenic u23635119 
+Keratile Maboka u24648702 
 
 Setup intsructions:
 
