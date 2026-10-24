@@ -4,9 +4,9 @@ Project Description: This web application helps Fintr decide when it becomes che
 Model cost calculations, dashboard charts and reports use ZAR as the common currency
 
 Group Members:
-Farah Hassim u23536919
-Katarina Stamenic u23635119
-Keratile Maboka u24648702
+Farah Hassim u23536919 \n
+Katarina Stamenic u23635119 \n
+Keratile Maboka u24648702 \n
 
 Setup intsructions:
 
@@ -21,7 +21,7 @@ venv\Scripts\activate
 `pip install -r requirements.txt`
 `python -m pytest`
 `python app.py`
-Open http://127.0.0.1:5000/
+Open http://127.0.0.1:5000
 
 
 
