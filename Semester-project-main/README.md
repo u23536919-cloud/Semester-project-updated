@@ -15,7 +15,8 @@ Setup intsructions:
 git clone <paste-your-repository-URL-here>
 cd <repository-folder-name>
 
-2. Type in the terminal and press enter after each one: 
+2. Intallation and setup instructions
+Type in the terminal and press enter after each one: 
 'python -m venv venv'
 venv\Scripts\activate
 `pip install -r requirements.txt`

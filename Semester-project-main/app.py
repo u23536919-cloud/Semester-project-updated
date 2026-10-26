@@ -31,9 +31,9 @@ REGIONAL_SHIPMENT_FIELDS = tuple(
 CUR = {"uk": {"code": "GBP", "axis": "£", "name": "British pounds"},
        "us": {"code": "USD", "axis": "USD", "name": "US dollars"}}
 
-#The above code displays the default values for the different regions, on the website. The user can change these values on the scenario comparison tabs.
+#The above code defines the constants and units for the rest of the code, for the different regions, on the website. The user can change these values on the scenario comparison tabs.
 
-#The def setting_fields() function is used to display the default values for the different inventory and replenishment fields, on the website. 
+#The def setting_fields() function is used to display the default values for the different inventory and replenishment fields on the website. 
 def setting_fields():
     """Inputs shown on the Settings page: exchange rates, then inventory and replenishment."""
     by_name = {f.name: f for f in fields(m.RegionInputs)}
@@ -41,7 +41,7 @@ def setting_fields():
            {"name": "zar_per_gbp", "label": "Exchange rate", "unit": "ZAR per GBP", "group": "rates", "default": DEFAULT_ZAR_PER_GBP}]
     #This is displaying the exchange rates, for pounds and dollars.
     
-    #This for loop is displaying the default values for the different inventory and replenishment fields, on the website. The user can change these values on the settings page.
+    
     #The inventory and replenishment fields are the different costs associated with shipping and storing products in different regions.
     for n in INV_FIELDS:
         if n == SHIPMENT_COST_FIELD:
@@ -61,7 +61,7 @@ def setting_fields():
 
 
 # The def settings_values() function is used to display the default values but the user can change the values.
-# The function will the update to use the new values.
+# The function will then update to use the new values that the user inputted .
 def settings_values():
     """Saved assumptions (kept in the user's session) on top of the defaults."""
     vals = {f["name"]: f["default"] for f in setting_fields()}
@@ -84,7 +84,7 @@ def settings_values():
     return vals
 
 
-# The def region_state() function is used to display the state we in.
+# The def region_state() function is used to display the state we are in.
 def region_state(code):
     state = dict(session.get("state", {}).get(code, {}))
     fx = settings_values()["fx_zar_per_usd"]
@@ -100,11 +100,12 @@ def region_state(code):
     return state
 
 
-#in the def region_inputs() function, we are displaying the default values for the different regions, on the website. The user can change these values on the scenario comparison tabs.
+# In the def region_inputs() function, it combines and adds the required the default values for the different regions based on what already given above, on the website.
+# The user can change these values on the scenario comparison tabs.
 def region_inputs(code):
     settings = settings_values()
 
-# the values variable is used to store the default values for the different regions, on the website.
+# The values is a variable that is used to store the default values for the different regions, on the website.
     values = {
         **REGIONS[code]["over"],
         **{
@@ -113,11 +114,11 @@ def region_inputs(code):
         },
     }
 
-#the shipment_cost variable is used to store the default values for the different shipment costs, on the website.
+# The shipment_cost variable is used to store the default values for the different shipment costs, on the website.
     shipment_cost = settings[f"{SHIPMENT_COST_FIELD}_{code}"]
     values[SHIPMENT_COST_FIELD] = shipment_cost
 
-#whatever the user inputs the code will overwite the default value with the user input.
+# The code will overwite the default value with the values that the user inputs.
     values.update({
         name:value
         for name, value in region_state(code).items()
@@ -138,7 +139,7 @@ def display_rate(code):
     s = settings_values()
     return 1 / s["zar_per_gbp"] if code == "uk" else 1 / s["fx_zar_per_usd"]
 
-# def freight_change works  out how much the freight rate has changed (in %) compared to the starting value.
+# def freight_change works out how much the freight rate has changed (in %) compared to the starting value.
 def freight_change(code):
     """% change of the current freight rate (saved input and freight slider) against the starting rate."""
     st = region_state(code)
@@ -154,7 +155,7 @@ def freight_change(code):
 def grouped_fields():
     groups = OrderedDict()
     for f in fields(m.RegionInputs):
-        groups.setdefault(f.metadata["group"], []).append(f) #make the group if its new, then add the field.
+        groups.setdefault(f.metadata["group"], []).append(f) #'make the group if its new, then add the field.
     return groups
 
 
@@ -211,32 +212,35 @@ def create_app():
         return out
 
     
-    #shell() adds the users name , role and alert count to every template automatically, so we dont have to enetr them manually on every page.
+    #shell() adds the users name , role and alert count to every template automatically, so we dont have to enter them manually on every page.
     @app.context_processor
     def shell():
         return {"user_name": session.get("name", ""), "user_role": session.get("role", ""),
                 "alert_count": len(active_alerts())}
 
-    #overview() works out the combined UK + US numbers for the dashboard
+    #overview() works out the combined UK + US numbers shown on the dashboard
     def overview():
         """Combined UK + US picture. Total volume is split between regions in today's proportions;
         each region keeps its own warehouse, so costs are summed region by region."""
         parts = [(region_inputs(c), region_volume(c)) for c in REGIONS]
-        # The total variable is used to store the total volume of all regions combined, and the tot variable is used to store the total volume or 1 if the total volume is 0.
+        # The total variable is used to store the total volume of all the regions combined.
+        # The tot variable is used to store the total volume or 1 if the total volume is 0.
         total = sum(q for _, q in parts)
         tot = total or 1
 
-        #adds up a cost function across both regions, giving each region its share volume-
-        
+       
+         #Adds up a cost function across both regions, giving each region its share volume
         def cost(fn, vol):
             return sum(fn(p, vol * q / tot) for p, q in parts) 
 
-        def gap(vol):  # warehouse minus direct: positive means shipping from SA is cheaper
+        def gap(vol):  # Warehouse minus direct: positive means shipping from SA is cheaper
             return cost(m.total_cost_warehouse, vol) - cost(m.total_cost_direct, vol)
 
         be = None
         hi = max(total, 1.0)
-
+# hi is a variable that represents the largest order volume the code is currently checking while it searches for the break-even point.
+# hi starts at a specific order volume and doubles until break even is reached - when doing this the direct cost and warehouse cost updates and an analysis is made on which option is cheaper between direct shipping and warehouse.
+# after doing this, it determines the order volume where the break even lies, this estimated volume is stored in the variable be.
         while gap(hi) > 0 and hi < 1e7: 
             hi *= 2
         if gap(hi) <= 0:
@@ -250,7 +254,7 @@ def create_app():
         pts = 12
         curve = [{"q": round(i * top / pts), "direct": cost(m.total_cost_direct, i * top / pts) / 1000,
                   "warehouse": cost(m.total_cost_warehouse, i * top / pts) / 1000} for i in range(pts + 1)]
-        kpi = {"volume": total,
+        kpi = {"volume": total, # kpi is a small summary of important numbers in the dashboard page like total order volume, average direct-shipping cost, average warehouse-shipping cost and break-even order volume.
                "direct_zar": cost(m.total_cost_direct, total) / total if total else None,
                "wh_zar": cost(m.total_cost_warehouse, total) / total if total else None, "be": be}
         return kpi, curve
@@ -259,17 +263,19 @@ def create_app():
     def dashboard():
         kpi, curve = overview()
         return render_template("dashboard.html", kpi=kpi, curve=curve, page="dashboard",
-                               updated=date.today().strftime("%d %b %Y"))
+                               updated=date.today().strftime("%d %b %Y")) # uses kpi and curve to create and return the dashboard.html page 
+    # the function also displays the date and page name 
 
     @app.route("/settings", methods=["GET", "POST"])
+    # this functions gives information to the settings page
     def settings():
         fields_ = setting_fields()
         if request.method == "POST":
-            if "reset" in request.form:
+            if "reset" in request.form: # the reset button removes saved assumptions 
                 session.pop("assump", None)
                 flash("Assumptions reset to the defaults.", "success")
                 return redirect(url_for("settings"))
-            try:
+            try: # if  it does not reset, it converts it to a number, checks if the numbers are valid, displays the required currency and saves the new assumptions given all the values are valid
                 new = {}
                 for f in fields_:
                     v = float(request.form[f["name"]])
@@ -314,6 +320,8 @@ def create_app():
     def alerts():
         rows = sorted((summary(c) for c in REGIONS), key=lambda r: r["progress"] or 0, reverse=True)
         return render_template("alerts.html", rows=rows, alerts=active_alerts(), page="alerts")
+# this function displays the alerts page: it gives a summary of each region, and shows the active alerts 
+
 
     ANALYSIS = [("be", "Break even volume"), ("cost", "Current vs Alternative cost"),
                 ("savings", "Potential savings"), ("rec", "Recommendation")]
@@ -338,11 +346,12 @@ def create_app():
                 "labels": [label for key, label in ANALYSIS if key in show], "q": q, "be": s["be"], "saving": saving,
                 "direct": m.total_cost_direct(p, q), "warehouse": m.total_cost_warehouse(p, q), "rec": s["rec"],
                 "rec_text": text, "threshold": threshold, "s": s}
+# this gathers the information needed for the pdf report for one region 
 
     def report_args():
         code = request.args.get("region", "uk")
         code = code if code in REGIONS else "uk"
-        # "f" is sent by the form; without it (first visit) every analysis option is shown
+        # This allows the user to pick what they want to be shown in the generated report.
         keys = {k for k, _ in ANALYSIS}
         show = {k for k in request.args.getlist("show") if k in keys} if request.args.get("f") else keys
         return code, show
@@ -374,7 +383,7 @@ def create_app():
         base_saving = m.monthly_saving(p, vol)
 
         def row(label, pp, qq, base=False):
-            # change in the monthly saving from a warehouse versus the base case (+ favours the warehouse)
+            # change in the monthly saving from a warehouse versus the base case (postive value means that Fintr should favour the warehouse)
             impact = None if base else m.monthly_saving(pp, qq) - base_saving
             return {"label": label, "be": m.break_even_volume(pp), "impact": impact,
                     "rec": m.recommend(pp, qq, MARGIN)}

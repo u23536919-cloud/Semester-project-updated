@@ -41,7 +41,7 @@ from typing import Dict, List, Optional
 
 class ModelError(ValueError):
     """Raised when inputs are invalid."""
-#When an icorrect input is given, this error is raised to the user to indicate that the input is invalid and needs to be corrected.
+#When an incorrect input is given, this error is raised to the user to indicate that the input is invalid and needs to be corrected.
 
 def _f(label, unit, group, default):
     return field(default=default, metadata={"label": label, "unit": unit, "group": group})
@@ -54,7 +54,7 @@ G_I = "Inventory and replenishment"
 G_F = "Warehouse: fixed costs"
 
 #This code defines the groups for the input fields, which are used to categorize the inputs in the RegionInputs dataclass.
-#the groups are used to organize the inputs and make it easier to understand the different types of costs involved in the break-even analysis.
+#the groups are used to organise the inputs and make it easier to understand the different types of costs involved in the break-even analysis.
 @dataclass(frozen=True) # Frozen = true means that once you set a value in the what-if analysis , it will keep that value the same until you change the value again
 
 class RegionInputs: #Contains all the inputs for one region at a time. US or UK
@@ -87,7 +87,7 @@ class RegionInputs: #Contains all the inputs for one region at a time. US or UK
             if getattr(self, name) <= 0:
                 raise ModelError(f"{self.__dataclass_fields__[name].metadata['label']} must be above 0.")
 #Self refers to each instance in the class RegionInputs
-# The function post_init checks each self, if it is either not a number or below zero. If it is either it will return an error message.
+# The function post_init checks each self, if it is either not a number or below zero, it will return an error message.
  
 #The p is an alias for the RegionInputs class, which is used to pass the input values to the functions.
 
@@ -107,12 +107,12 @@ def annual_holding_cost_per_unit(p: RegionInputs):
 def safety_holding_cost_per_unit(p: RegionInputs):
     """Monthly carrying cost of safety stock per unit of monthly volume."""
     return annual_holding_cost_per_unit(p) / 12 * p.service_z * p.demand_cv * sqrt(p.lead_time_months)
-#The Annual holding rate is used to calculate the cost of carrying the cost
+#This function calculates the monthly cost of carrying the safety stock
 
 def cycle_cost_coefficient(p: RegionInputs):
     """k in (monthly EOQ ordering + cycle-stock cost) = k * sqrt(Q)."""
     return sqrt(p.inbound_shipment_fixed_zar * annual_holding_cost_per_unit(p) / 6)
-#this function calculates the cycle cost coefficient, which is used to determine the total cost of using a warehouse. 
+#This function calculates the cycle cost coefficient, which is used to determine the total cost of using a warehouse. 
 # It takes into account the fixed cost per inbound shipment and the annual holding cost per unit.
 
 
@@ -121,13 +121,13 @@ def warehouse_variable_cost(p: RegionInputs):
     return (p.inbound_freight_zar + p.inbound_customs_ins_zar
             + p.pick_pack_zar + p.local_delivery_zar
             + safety_holding_cost_per_unit(p))
-#the warehouse cost consists of: inbound freight, customs, safety stock, pick and pack and  local delivery.
+#The warehouse cost consists of inbound freight, customs, safety stock, pick and pack and  local delivery.
 
 def warehouse_fixed_cost(p: RegionInputs):
     """F_w (ZAR/month)."""
     return (p.rent_zar_month + p.staff_zar_month + p.admin_zar_month
             + p.setup_zar / p.amortisation_months)
-# the warehouse variable cost consists of: rent, staff salaries, admin, setup cost 
+#The warehouse variable cost consists of rent, staff salaries, admin and setup cost.
 #Amortisation is spreading out a cost over a period of time, instead of once off.
 
 def calculate_eoq(demand: float, order_cost: float, hold_cost: float):
@@ -137,8 +137,8 @@ def calculate_eoq(demand: float, order_cost: float, hold_cost: float):
     if demand < 0 or order_cost < 0:
         raise ModelError("Demand and ordering cost must be 0 or more.")
     return sqrt(2 * demand * order_cost / hold_cost)
-# If the warehouse is a feasible option - it will calculate the optimal order quantity (EOQ)
-#The holding cost can never be negative or zero and demand can not be negative. This is why it should raise an error string instead of returning a vlaue(which is an error)
+# If the warehouse is a feasible option it will calculate the optimal order quantity (EOQ)
+#The holding cost can never be negative or zero. Demand can be zero but not negative. This is why it should raise an error string instead of returning an error value.
 
 def orders_per_year(demand: float, order_qty: float):
     return 0.0 if order_qty == 0 else demand / order_qty
@@ -165,7 +165,7 @@ def replenishment_plan(p: RegionInputs, q: float):
     _check_q(q) ## if q is less than 0, it returns an error to the user saying monthly order volume can not be negative
     d = 12 * q
     h = annual_holding_cost_per_unit(p)
-    eoq = calculate_eoq(d, p.inbound_shipment_fixed_zar, h) if h > 0 else 0.0 ## if the holding cost is zero  we dont want it to return an error, instead we want it to return zero, to indicate the EOQ is zero, therefore no warehouse just direct shipping is the best option
+    eoq = calculate_eoq(d, p.inbound_shipment_fixed_zar, h) if h > 0 else 0.0 ## if the holding cost is zero  we dont want it to return an error. Instead we want it to return zero, to indicate the EOQ is zero, therefore no warehouse is needed and Fintr can prioritise direct shipping.
     opy = orders_per_year(d, eoq) ## this calculates the number of orders per year based on the demand and EOQ
     return {"eoq": eoq, "orders_per_year": opy, 
             "days_between": 365 / opy if opy else 0.0, ##  This function calculates the number of days between shipments
@@ -192,10 +192,8 @@ def total_cost_warehouse(p: RegionInputs, q: float):
 def break_even_volume(p: RegionInputs):
     """Q* in units/month, or None if the warehouse is not an option  (v_d <= v_w)."""
     ## This function calculates the break-even volume, which is the point at which the total cost of direct shipping equals the total cost of using a warehouse.
-    ## If the variable cost of direct shipping is less than or equal to the variable cost of using a warehouse, it returns None, indicating that using a warehouse is not a feasible option.
     a = direct_variable_cost(p) - warehouse_variable_cost(p)
-    if a <= 0: ##this means that the variable cost of direct shipping is less than or equal to the variable cost of using a warehouse, so it is not feasible to use a warehouse. Therefore, the function returns None.
-        return None
+    if a <= 0:  ## If the variable cost of direct shipping is less than or equal to the variable cost of using a warehouse, it returns None, indicating that using a warehouse is not a feasible option.
     k = cycle_cost_coefficient(p) 
     f = warehouse_fixed_cost(p)
     x = (k + sqrt(k * k + 4 * a * f)) / (2 * a) 
@@ -205,6 +203,7 @@ def break_even_volume(p: RegionInputs):
 def decision_threshold(p: RegionInputs, margin: float = 0.10):
     be = break_even_volume(p)
     return None if be is None else be * (1 + margin)
+# The margin acts as a buffer to allow Fintr to review their volumes before making a decision.
 
 def recommend(p: RegionInputs, q: float, margin: float = 0.10):
     be = break_even_volume(p)
@@ -214,6 +213,8 @@ def recommend(p: RegionInputs, q: float, margin: float = 0.10):
         return "Review: inside margin"
     else:
         return "Use warehouse"
+# This function gives the recommnedation based on the break-even threshold. Volumes below the break-even indicate shipping from SA, 
+# volumes above the break-even up to the margin need review before making a decision to build a warehouse. Anything above this buffer means booking a warehouse.
 
 def monthly_saving(p: RegionInputs, q: float):
     """Direct minus warehouse cost at Q (positive = warehouse cheaper)."""
@@ -224,7 +225,7 @@ def cost_curve(p: RegionInputs, q_max: float, points: int = 25):
     step = q_max / (points - 1)
     return [{"q": round(i * step, 1), "direct": total_cost_direct(p, i * step),
              "warehouse": total_cost_warehouse(p, i * step)} for i in range(points)]
-# This function generates a cost curve for both direct shipping and warehouse costs over a range of order volumes. ach point. 
+# This function generates a cost curve for both direct shipping and warehouse costs over a range of order volumes. 
 # This allows for visualizing how costs change with varying order volumes.   
 
 def apply_scenario(p: RegionInputs, freight_pct=0.0, customs_pct=0.0, lease_pct=0.0):
@@ -237,7 +238,7 @@ def apply_scenario(p: RegionInputs, freight_pct=0.0, customs_pct=0.0, lease_pct=
         inbound_customs_ins_zar=p.inbound_customs_ins_zar * (1 + customs_pct),
         rent_zar_month=p.rent_zar_month * (1 + lease_pct),
     )
-#This allows the user to change the values , to simulate different what-if scenarios.
+#This allows the user to change the values using sliders on the scenario page to simulate different what-if scenarios.
 
 def sensitivity(p: RegionInputs, shock: float = 0.10):
     """Break-even when each input moves by -shock / +shock; sorted by swing."""
@@ -253,7 +254,8 @@ def sensitivity(p: RegionInputs, shock: float = 0.10):
     return sorted(rows, key=lambda r: r["swing"], reverse=True)
 # This function calculates the break-even volume for both the lower and upper bounds of each input. 
 # This helps identify which inputs have the most significant impact on the break-even point.
-#The shock is the default value of 10% and can be changed to see how sensitive the break-even point is to changes in each input.
+# The shock is the default value of 10% and can be changed to see how sensitive the break-even point is to changes in each input.
+# The base case is the current volume based on the inputs put by the user. It is tested against different variables like freight rate, customs etc to see how the outcome changes.
 
 def progress_to_break_even(q: float, be: Optional[float]):
     if not be:
@@ -261,4 +263,4 @@ def progress_to_break_even(q: float, be: Optional[float]):
     else:
         return  q / be
 
-#This function calculates how far away Fintr is from reaching the break-even point (in order to build a warehouse in either region).
+#This function calculates how far away Fintr is from reaching the break-even point (in order to build a warehouse in either region). This is shown in the Alerts and Monitoring page.
