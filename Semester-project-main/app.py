@@ -357,6 +357,8 @@ def create_app():
         return code, show
 
     @app.route("/reports")
+
+    #this function shows the report preview page 
     def reports():
         code, show = report_args()
         d = report_data(code, show)
@@ -365,6 +367,7 @@ def create_app():
                                analysis=ANALYSIS, generated=bool(request.args.get("g")), today=d["date"])
 
     @app.route("/reports/pdf")
+    # creates and downloads the PDF version of the report
     def reports_pdf():
         code, show = report_args()
         if not show:
@@ -375,6 +378,9 @@ def create_app():
         return send_file(BytesIO(build_report_pdf(d)), mimetype="application/pdf", as_attachment=True,
                          download_name=name)
 
+
+#the entire build_results function speaks to the alerts page. It shows a leaderboard of regions by progress - progress is tracking the amount that is required to reach the break even point. 
+# it also shows a list of active alerts 
     def build_results(p, vol, wi):
         """Everything the region page shows; all model costs are in ZAR."""
         sp = m.apply_scenario(p, wi["freight"] / 100, wi["customs"] / 100, wi["lease"] / 100)
@@ -432,9 +438,11 @@ def create_app():
         vals = {k: round(getattr(p, k) * rate, 2) for k in MAIN_FIELDS}
         return render_template("region.html", code=code, name=REGIONS[code]["name"], vals=vals, vol=vol, wi=wi,
                                cur=CUR[code], page=code, margin=int(MARGIN * 100), calc=calc)
-
+# the above region function allows users to fill in the relevant data with their own values. 
+# Once they click "Calculate", this function will use those input values to recalculate the results, updates the graph and sensitivity analysis and displays the updated page
+   
     return app
 
-
+# this starts the web app when app.py runs directly
 if __name__ == "__main__":
     create_app().run(debug=True)

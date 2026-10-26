@@ -193,7 +193,8 @@ def break_even_volume(p: RegionInputs):
     """Q* in units/month, or None if the warehouse is not an option  (v_d <= v_w)."""
     ## This function calculates the break-even volume, which is the point at which the total cost of direct shipping equals the total cost of using a warehouse.
     a = direct_variable_cost(p) - warehouse_variable_cost(p)
-    if a <= 0:  ## If the variable cost of direct shipping is less than or equal to the variable cost of using a warehouse, it returns None, indicating that using a warehouse is not a feasible option.
+    if a <= 0:  ## If the variable cost of direct shipping is less than or equal to the variable cost of using a warehouse, using a warehouse is not a feasible option.
+        return None
     k = cycle_cost_coefficient(p) 
     f = warehouse_fixed_cost(p)
     x = (k + sqrt(k * k + 4 * a * f)) / (2 * a) 
