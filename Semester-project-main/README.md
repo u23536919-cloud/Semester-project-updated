@@ -24,5 +24,7 @@ venv\Scripts\activate
 `python app.py`
 Open http://127.0.0.1:5000
 
+3. Click into "Semester-project-main" inside the repository to view all the files
+
 
 
